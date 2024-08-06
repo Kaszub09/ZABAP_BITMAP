@@ -1,5 +1,5 @@
 # ZABAP_BITMAP
-Allows for bitmap manipulation pixel by pixel.
+Allows for bitmap manipulation pixel by pixel. Supports only 24-bit Windows BMP.
 
 # Example
 
