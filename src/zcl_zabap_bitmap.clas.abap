@@ -22,9 +22,7 @@ CLASS zcl_zabap_bitmap DEFINITION PUBLIC FINAL CREATE PRIVATE.
       "! @parameter row | <p class="shorttext synchronized" lang="en">Indexed from 0, bottom to top.</p>
       "! @parameter col | <p class="shorttext synchronized" lang="en">Indexed from 0, left to right.</p>
       get_pixel IMPORTING row TYPE i col TYPE i RETURNING VALUE(pixel) TYPE t_pixel,
-      get_as_xstring RETURNING VALUE(bitmap) TYPE xstring,
-      display_in_container IMPORTING container TYPE REF TO cl_gui_container display_mode TYPE i DEFAULT cl_gui_picture=>display_mode_fit_center,
-      get_image_url RETURNING VALUE(url) TYPE char255.
+      get_as_xstring RETURNING VALUE(bitmap) TYPE xstring.
 
   PRIVATE SECTION.
     TYPES:
@@ -52,12 +50,7 @@ CLASS zcl_zabap_bitmap DEFINITION PUBLIC FINAL CREATE PRIVATE.
         vertical_resolution   TYPE t_four_bytes, "The vertical resolution of the image. (pixel per metre, signed integer)
         colors_palette_size   TYPE t_four_bytes, "The number of colors in the color palette, or 0 to default to 2n
         important_colors_used TYPE t_four_bytes, "The number of important colors used, or 0 when every color is important; generally ignored
-      END OF t_xheader,
-      BEGIN OF t_header,
-        width          TYPE int4,
-        height         TYPE int4,
-        bits_per_pixel TYPE int2,
-      END OF t_header.
+      END OF t_xheader.
 
     METHODS:
       parse_header IMPORTING xheader TYPE xstring RAISING zcx_zabap_bitmap,
@@ -111,8 +104,8 @@ CLASS zcl_zabap_bitmap IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD validate_correct_bmp.
-    IF xheader-file_type <> 'BM'.
-      RAISE EXCEPTION TYPE zcx_zabap_bitmap EXPORTING custom_message = |Expected 'BM' file type|.
+    IF xheader-file_type <> '424D'.
+      RAISE EXCEPTION TYPE zcx_zabap_bitmap EXPORTING custom_message = |Expected 'BM' file type (424D)|.
     ENDIF.
     IF le_to_int( xheader-bits_per_pixel ) <> 24.
       RAISE EXCEPTION TYPE zcx_zabap_bitmap EXPORTING custom_message = |Expected 24 bits per pixel|.
@@ -129,28 +122,29 @@ CLASS zcl_zabap_bitmap IMPLEMENTATION.
     DATA(offset) = 0.
     DATA(row) = 0.
     DATA(col) = 0.
+    DATA(row_padding) =  ( 4 - ( ( width * 3 ) MOD 4 ) ) MOD 4. "Row must be multiple of four
 
     WHILE row < height. "rows are bottom to top
       WHILE col < width. "cols are left to right
-        offset = offset + 3.
         x_3 = pixels_xstring+offset(3). "pixel order is Blue, Green, Red
         ASSIGN x_3 TO <pixel> CASTING.
         APPEND <pixel> TO pixels.
         col = col + 1.
+        offset = offset + 3.
       ENDWHILE.
 
-      offset = offset + 4 - ( ( width * 3 ) MOD 4 )."pad to multiple of 4
+      offset = offset + row_padding.
       row = row + 1.
       col = 0.
     ENDWHILE.
   ENDMETHOD.
 
   METHOD get_pixel.
-    pixel = pixels[ row * width + col ].
+    pixel = pixels[ row * width + col + 1 ].
   ENDMETHOD.
 
   METHOD set_pixel.
-    pixels[ row * width + col ] = pixel.
+    pixels[ row * width + col + 1 ] = pixel.
   ENDMETHOD.
 
   METHOD set_pixel_row.
@@ -197,13 +191,6 @@ CLASS zcl_zabap_bitmap IMPLEMENTATION.
     ENDLOOP.
   ENDMETHOD.
 
-  METHOD display_in_container.
-    DATA(picture_control) = NEW cl_gui_picture( container ).
-    picture_control->set_3d_border( 1 ).
-    picture_control->set_display_mode( display_mode ).
-    picture_control->load_picture_from_url_async( get_image_url( ) ).
-  ENDMETHOD.
-
   METHOD int_to_le4.
     le = zcl_zabap_bytes_conv=>system_to_le( zcl_zabap_bytes_conv=>int_to_system( int ) ).
   ENDMETHOD.
@@ -211,24 +198,5 @@ CLASS zcl_zabap_bitmap IMPLEMENTATION.
   METHOD le_to_int.
     int = zcl_zabap_bytes_conv=>system_to_int( zcl_zabap_bytes_conv=>le_to_system( le ) ).
   ENDMETHOD.
-
-  METHOD get_image_url.
-    DATA(solix) = cl_bcs_convert=>xstring_to_solix( get_as_xstring( ) ).
-    CONSTANTS: cndp_lifetime_transaction TYPE c LENGTH 1 VALUE 'T'.
-
-    CALL FUNCTION 'DP_CREATE_URL'
-      EXPORTING
-        type     = 'IMAGE'                 " MIME Type
-        subtype  = space                " MIME Subtype
-        lifetime = cndp_lifetime_transaction
-      TABLES
-        data     = solix
-      CHANGING
-        url      = url.
-  ENDMETHOD.
-
-
-
-
 
 ENDCLASS.

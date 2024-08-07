@@ -23,6 +23,5 @@ AT SELECTION-SCREEN OUTPUT.
   bitmap->set_pixel_row( row = 6 pixel_row = VALUE #( ( black ) ( black ) ( green ) ( black ) ( black ) ( black ) ( black ) ( black ) ) ).
   bitmap->set_pixel_row( row = 7 pixel_row = VALUE #( ( black ) ( black ) ( black ) ( black ) ( black ) ( black ) ( black ) ( black ) ) ).
 
-
-  bitmap->display_in_container( container = NEW cl_gui_docking_container( ratio = 95 side = cl_gui_docking_container=>dock_at_top )
-      display_mode = cl_gui_picture=>display_mode_fit_center ).
+  data(bitmap_file) = new zcl_zabap_bitmap_file( bitmap ).
+  bitmap_file->display_in_container( container = NEW cl_gui_docking_container( ratio = 95 side = cl_gui_docking_container=>dock_at_top ) ).
