@@ -22,8 +22,29 @@ CLASS zcl_zabap_bitmap DEFINITION PUBLIC FINAL CREATE PRIVATE.
       "! @parameter row | <p class="shorttext synchronized" lang="en">Indexed from 0, bottom to top.</p>
       "! @parameter col | <p class="shorttext synchronized" lang="en">Indexed from 0, left to right.</p>
       get_pixel IMPORTING row TYPE i col TYPE i RETURNING VALUE(pixel) TYPE t_pixel,
-      get_as_xstring RETURNING VALUE(bitmap) TYPE xstring.
+      get_as_xstring RETURNING VALUE(bitmap) TYPE xstring,
+      "! <p class="shorttext synchronized" lang="en">Paste bitmap starting from row/col...</p> excess pixels are skipped.
+      "! E.g. pasting 2x3 image
+      "! <br/>...
+      "! <br/>...
+      "! <br/>onto 2x4 image
+      "! <br/>####
+      "! <br/>####
+      "! <br/>starting at 1,2 results in
+      "! <br/>##..
+      "! <br/>####
+      "! @parameter row | <p class="shorttext synchronized" lang="en">Indexed from 0, bottom to top.</p>
+      "! @parameter col | <p class="shorttext synchronized" lang="en">Indexed from 0, left to right.</p>
+      "! @parameter bitmap | <p class="shorttext synchronized" lang="en">Image to paste</p>
+      paste_bitmap IMPORTING row TYPE i col TYPE i bitmap TYPE REF TO zcl_zabap_bitmap,
+      "! <p class="shorttext synchronized" lang="en">Reverse bottom/top</p>
+      flip_vertically,
+      "! <p class="shorttext synchronized" lang="en">Reverse left/right</p>
+      flip_horizontally.
 
+    DATA:
+      width  TYPE i READ-ONLY,
+      height TYPE i READ-ONLY.
   PRIVATE SECTION.
     TYPES:
       t_one_byte   TYPE x LENGTH 1,
@@ -60,8 +81,6 @@ CLASS zcl_zabap_bitmap DEFINITION PUBLIC FINAL CREATE PRIVATE.
       le_to_int IMPORTING le TYPE xsequence RETURNING VALUE(int) TYPE i.
 
     DATA:
-      width  TYPE i,
-      height TYPE i,
       pixels TYPE STANDARD TABLE OF t_pixel WITH EMPTY KEY.
 ENDCLASS.
 
@@ -161,8 +180,10 @@ CLASS zcl_zabap_bitmap IMPLEMENTATION.
     TYPES:  t_xpixel TYPE x LENGTH 3.
     DATA xheader TYPE x LENGTH 54.
 
+    DATA(row_padding) =  ( 4 - ( ( width * 3 ) MOD 4 ) ) MOD 4. "Row must be multiple of four
+
     xheader = |424D| "File type, 'BM'
-        && |{ int_to_le4( lines( pixels ) * 3 + 54 ) }| "Size in bytes, 54 for header + 3 * pixels
+        && |{ int_to_le4(  54 + lines( pixels ) * 3 + row_padding * height ) }| "Size in bytes
         && |00000000| "reserved - empty
         && |36000000| "Pixels array offset, constant 54 since that's full header size
         && |28000000| "DIB header size, constant 40
@@ -183,7 +204,7 @@ CLASS zcl_zabap_bitmap IMPLEMENTATION.
       bitmap = |{ bitmap }{ <xpixel> }|.
 
       IF current_col = width.
-        DO (  4 - ( ( width * 3 ) MOD 4 ) ) MOD 4 TIMES.
+        DO row_padding TIMES.
           bitmap = |{ bitmap }00|.
         ENDDO.
         current_col = 0.
@@ -197,6 +218,68 @@ CLASS zcl_zabap_bitmap IMPLEMENTATION.
 
   METHOD le_to_int.
     int = zcl_zabap_bytes_conv=>system_to_int( zcl_zabap_bytes_conv=>le_to_system( le ) ).
+  ENDMETHOD.
+
+  METHOD paste_bitmap.
+    DATA(paste_row) = row.
+    DATA(paste_col) = col.
+    DATA(copy_row) = 0.
+    DATA(copy_col) = 0.
+
+    WHILE paste_row < height AND copy_row < bitmap->height. "rows are bottom to top
+      WHILE paste_col < width. "cols are left to right
+        IF paste_col >= width OR copy_col >= bitmap->width.
+          CONTINUE.
+        ENDIF.
+        set_pixel( row = paste_row col = paste_col pixel = bitmap->get_pixel( row = copy_row col = copy_col ) ).
+        paste_col = paste_col + 1.
+        copy_col = copy_col + 1.
+      ENDWHILE.
+
+      paste_row = paste_row + 1.
+      copy_row = copy_row + 1.
+      paste_col = col.
+      copy_col = 0.
+    ENDWHILE.
+  ENDMETHOD.
+
+  METHOD flip_horizontally.
+    DATA(row) = 0.
+    DATA(col) = 0.
+    DATA(up_to_col) = COND i( WHEN width MOD 2 = 0 THEN ( width - 2 ) / 2 ELSE ( width - 1 ) / 2 ).
+    WHILE row < height. "rows are bottom to top
+      WHILE col <= up_to_col. "cols are left to right
+        DATA(col_to_swap) = width - col - 1.
+
+        DATA(pixel) = pixels[ row * width + col + 1 ].
+        pixels[ row * width + col + 1 ] = pixels[ row * width + col_to_swap + 1 ].
+        pixels[ row * width + col_to_swap + 1 ] = pixel.
+
+        col = col + 1.
+      ENDWHILE.
+
+      row = row + 1.
+      col = 0.
+    ENDWHILE.
+  ENDMETHOD.
+
+  METHOD flip_vertically.
+    DATA(row) = 0.
+    DATA(col) = 0.
+    DATA(up_to_row) = COND i( WHEN height MOD 2 = 0 THEN ( height - 2 ) / 2 ELSE ( height - 1 ) / 2 ).
+    WHILE row <= up_to_row. "rows are bottom to top
+      DATA(row_to_swap) = height - row - 1.
+
+      WHILE col < width. "cols are left to right
+        DATA(pixel) = pixels[ row * width + col + 1 ].
+        pixels[ row * width + col + 1 ] = pixels[ row_to_swap * width + col + 1 ].
+        pixels[ row_to_swap * width + col + 1 ] = pixel.
+        col = col + 1.
+      ENDWHILE.
+
+      row = row + 1.
+      col = 0.
+    ENDWHILE.
   ENDMETHOD.
 
 ENDCLASS.
