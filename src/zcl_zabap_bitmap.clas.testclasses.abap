@@ -99,3 +99,49 @@ CLASS ltcl_flip IMPLEMENTATION.
     cl_abap_unit_assert=>assert_equals( act = bitmap->get_as_xstring( ) exp = flipped_vertically_3x7 ).
   ENDMETHOD.
 ENDCLASS.
+
+"--------------------------------------------------------------------------------------------------------
+"========================================================================================================
+"--------------------------------------------------------------------------------------------------------
+
+CLASS ltcl_paste DEFINITION FINAL FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
+
+  PRIVATE SECTION.
+    CLASS-METHODS:
+      class_setup.
+
+    CLASS-DATA:
+      before_paste_2x4 TYPE xstring,
+      to_paste_2x3     TYPE xstring,
+      after_paste_2x4  TYPE xstring.
+
+    METHODS:
+      pasted FOR TESTING.
+
+ENDCLASS.
+
+CLASS ltcl_paste IMPLEMENTATION.
+  METHOD class_setup.
+    before_paste_2x4 = |424D4E00000000000000360000002800| &
+                       |00000400000002000000010018000000| &
+                       |00000000000000000000000000000000| &
+                       |000000000000241CED241CED241CED24| &
+                       |1CED241CED241CED241CED241CED|.
+    to_paste_2x3 = |424D4E00000000000000360000002800| &
+                   |00000300000002000000010018000000| &
+                   |00000000000000000000000000000000| &
+                   |00000000000000000000F2FF00000000| &
+                   |000000F2FF000000000000000000|.
+    after_paste_2x4 = |424D4E00000000000000360000002800| &
+                      |00000400000002000000010018000000| &
+                      |00000000000000000000000000000000| &
+                      |000000000000241CED241CED241CED24| &
+                      |1CED241CED241CED00000000F2FF|.
+  ENDMETHOD.
+
+  METHOD pasted.
+    DATA(bitmap) = zcl_zabap_bitmap=>create_from_bitmap( before_paste_2x4 ).
+    bitmap->paste_bitmap( row = 1 col = 2 bitmap = zcl_zabap_bitmap=>create_from_bitmap( to_paste_2x3 ) ).
+    cl_abap_unit_assert=>assert_equals( act = bitmap->get_as_xstring( ) exp = after_paste_2x4 ).
+  ENDMETHOD.
+ENDCLASS.
