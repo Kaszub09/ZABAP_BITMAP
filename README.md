@@ -22,7 +22,10 @@ bitmap->set_pixel_row( row = 5 pixel_row = VALUE #( ( black ) ( orange ) ( green
 bitmap->set_pixel_row( row = 6 pixel_row = VALUE #( ( black ) ( black ) ( green ) ( black ) ( black ) ( black ) ( black ) ( black ) ) ).
 bitmap->set_pixel_row( row = 7 pixel_row = VALUE #( ( black ) ( black ) ( black ) ( black ) ( black ) ( black ) ( black ) ( black ) ) ).
 ```
-
+``` abap
+DATA(bitmap_file) = NEW zcl_zabap_bitmap_file( bitmap ).
+bitmap_file->display_in_container( container = NEW cl_gui_docking_container( ratio = 95 side = cl_gui_docking_container=>dock_at_top ) ).
+```
 Result:
 
 ![obraz](https://github.com/user-attachments/assets/f89573f9-5eec-4148-96f2-837a2ceec548)
